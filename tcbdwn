@@ -1,0 +1,75 @@
+#! /bin/sh
+
+#        _       _                _      
+#       | |     | |              (_)     
+#   __ _| |_ __ | |__   __ ___  ___ _ __ 
+#  / _` | | '_ \| '_ \ / _` \ \/ / | '__| Shivaji Chalise (alphajr)
+# | (_| | | |_) | | | | (_| |>  <| | |    http://www.github.com/shivajichalise
+#  \__,_|_| .__/|_| |_|\__,_/_/\_\ |_|   
+#         | |                   _/ |     
+#         |_|                  |__/      
+#
+# Download a manga TCB Scans (https://tcbscans.com/)
+
+# Function to expand a range like 1000-1112 to individual numbers
+expand_range() {
+    local range=$1
+    local from=$(echo "$range" | cut -d'-' -f1)
+    local to=$(echo "$range" | cut -d'-' -f2)
+    seq "$from" "$to"
+}
+
+mkdir downloadingtemp
+tcbscans="https://tcbscans.com"
+
+curlres=$(curl -L "${tcbscans}/projects" | grep -Eoi '<a [^>]+>[^>]+>')
+manganames=$(echo "$curlres" | sed -E 's/<[^>]+>//g' | tail -n +6 | head -n -3 | awk 'NF')
+manga=$(echo "$manganames" | fzf)
+link=$(echo "$curlres" | grep -Eoi "<a[^>]+>${manga}[^>]+>" | awk -F'"' '{print $4}' | head -n 1)
+
+echo "Give the chapter no. (111 or 100,102 or 100-110): "
+read -r range
+
+if [[ "$range" =~ ^[0-9]+$ ]]; then
+    # Single number provided
+    pattern="$range"
+elif [[ "$range" =~ ^[0-9]+,[0-9]+$ ]]; then
+    # Comma-separated list of numbers provided
+    IFS=',' read -r -a numbers <<< "$range"
+    pattern=$(echo "$range" | sed 's/,/\\|/g')
+elif [[ "$range" =~ ^[0-9]+-[0-9]+$ ]]; then
+    # Range provided
+    numbers=$(expand_range "$range")
+    pattern=$(echo "$numbers" | sed 's/ /\\|/g')
+else
+    echo "Invalid input format"
+    exit 0
+fi
+
+pattern_escaped=$(echo $pattern | sed 's/ /|/g')
+pattern_escaped_with_chap=$(echo $pattern_escaped | sed 's/^/chapter-/g' | sed 's/|/|chapter-/g')
+
+curl -L "${tcbscans}${link}" | grep -Eoi "<div[^>]+>$selected[^>]+>" | grep -E "$pattern_escaped" | sed -E 's/<[^>]+>//g' | sed -E 's/ /_/g' | sort -V > ./downloadingtemp/chapters_names
+curl -L "${tcbscans}${link}" | grep -Eoi '<a href="/chapters[^>]+>' | awk -F'"' '{print $2}' | sort -k4 -t- -V | grep -E "$pattern_escaped_with_chap" | sed -E 's/^/https:\/\/tcbscans.com/g' > ./downloadingtemp/chapters_links
+
+chapters_names="./downloadingtemp/chapters_names"
+chapters_links="./downloadingtemp/chapters_links"
+file="./downloadingtemp/temp"
+
+while IFS= read -r line1 && IFS= read -r line2 <&3; do
+    count=1
+    curl -L "$line1" | grep -Eoi '<img [^>]+>' | cut -d\" -f4 | grep .png > ./downloadingtemp/temp
+
+    while read -r line
+    do
+        wget -O ./downloadingtemp/"$count" "$line"
+        soffice --headless --convert-to pdf ./downloadingtemp/"$count" --outdir ./downloadingtemp/
+        ((count++))
+    done < $file
+
+    pdf_files=($(find ./downloadingtemp -type f -name "*.pdf" | sort -V))
+    pdfunite "${pdf_files[@]}" "$line2".pdf
+    find ./downloadingtemp -type f -name "*.pdf" -exec sh -c "rm -rf {};" \;
+done < $chapters_links 3< $chapters_names
+
+rm -r ./downloadingtemp
