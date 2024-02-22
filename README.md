@@ -4,6 +4,7 @@
 a simple bash script to scrape the tcbscans site to download manga
 
 > NOTE: it requires `curl`, `fzf`, `soffice`, `pdfunite` and `wget` to run and uses GNU Core Utilities commands `grep`, `awk`, `sed`, `head`, `tail`, `find` etc.
+
 > NOTE: if you are on mac be sure to replace every head command with ghead (GNU version of head) as the default head available in mac doesn't support negative number
 
 ## Installing
