@@ -9,7 +9,7 @@
 #         | |                   _/ |     
 #         |_|                  |__/      
 #
-# Download a manga TCB Scans (https://tcbscans.com/)
+# Download manga from TCB Scans (https://tcbscans.com/)
 
 # Function to expand a range like 1000-1112 to individual numbers
 expand_range() {
@@ -23,7 +23,7 @@ mkdir downloadingtemp
 tcbscans="https://tcbscans.com"
 
 curlres=$(curl -L "${tcbscans}/projects" | grep -Eoi '<a [^>]+>[^>]+>')
-manganames=$(echo "$curlres" | sed -E 's/<[^>]+>//g' | tail -n +6 | head -n -3 | awk 'NF')
+manganames=$(echo "$curlres" | sed -E 's/<[^>]+>//g' | tail -n +6 | ghead -n -3 | awk 'NF')
 manga=$(echo "$manganames" | fzf)
 link=$(echo "$curlres" | grep -Eoi "<a[^>]+>${manga}[^>]+>" | awk -F'"' '{print $4}' | head -n 1)
 
@@ -33,10 +33,10 @@ read -r range
 if [[ "$range" =~ ^[0-9]+$ ]]; then
     # Single number provided
     pattern="$range"
-elif [[ "$range" =~ ^[0-9]+,[0-9]+$ ]]; then
+elif [[ "$range" =~ ^[0-9]+(,[0-9]+)*$ ]]; then
     # Comma-separated list of numbers provided
     IFS=',' read -r -a numbers <<< "$range"
-    pattern=$(echo "$range" | sed 's/,/\\|/g')
+    pattern=$(echo "$range" | sed 's/,/|/g')
 elif [[ "$range" =~ ^[0-9]+-[0-9]+$ ]]; then
     # Range provided
     numbers=$(expand_range "$range")
@@ -49,8 +49,8 @@ fi
 pattern_escaped=$(echo $pattern | sed 's/ /|/g')
 pattern_escaped_with_chap=$(echo $pattern_escaped | sed 's/^/chapter-/g' | sed 's/|/|chapter-/g')
 
-curl -L "${tcbscans}${link}" | grep -Eoi "<div[^>]+>$selected[^>]+>" | grep -E "$pattern_escaped" | sed -E 's/<[^>]+>//g' | sed -E 's/ /_/g' | sort -V > ./downloadingtemp/chapters_names
-curl -L "${tcbscans}${link}" | grep -Eoi '<a href="/chapters[^>]+>' | awk -F'"' '{print $2}' | sort -k4 -t- -V | grep -E "$pattern_escaped_with_chap" | sed -E 's/^/https:\/\/tcbscans.com/g' > ./downloadingtemp/chapters_links
+curl -L "${tcbscans}${link}" | grep -Eoi "<div[^>]+>$manga[^>]+>" | grep -Ew "$pattern_escaped" | sed -E 's/<[^>]+>//g' | sed -E 's/ /_/g' | sort -V > ./downloadingtemp/chapters_names
+curl -L "${tcbscans}${link}" | grep -Eoi '<a href="/chapters[^>]+>' | awk -F'"' '{print $2}' | sort -k4 -t- -V | grep -Ew "$pattern_escaped_with_chap" | sed -E 's/^/https:\/\/tcbscans.com/g' > ./downloadingtemp/chapters_links
 
 chapters_names="./downloadingtemp/chapters_names"
 chapters_links="./downloadingtemp/chapters_links"
@@ -58,7 +58,7 @@ file="./downloadingtemp/temp"
 
 while IFS= read -r line1 && IFS= read -r line2 <&3; do
     count=1
-    curl -L "$line1" | grep -Eoi '<img [^>]+>' | cut -d\" -f4 | grep .png > ./downloadingtemp/temp
+    curl -L "$line1" | grep -Eoi '<img [^>]+>' | cut -d\" -f4 > ./downloadingtemp/temp
 
     while read -r line
     do
