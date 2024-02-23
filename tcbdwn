@@ -23,7 +23,7 @@ mkdir downloadingtemp
 tcbscans="https://tcbscans.com"
 
 curlres=$(curl -L "${tcbscans}/projects" | grep -Eoi '<a [^>]+>[^>]+>')
-manganames=$(echo "$curlres" | sed -E 's/<[^>]+>//g' | tail -n +6 | ghead -n -3 | awk 'NF')
+manganames=$(echo "$curlres" | sed -E 's/<[^>]+>//g' | tail -n +6 | head -n -3 | awk 'NF')
 manga=$(echo "$manganames" | fzf)
 link=$(echo "$curlres" | grep -Eoi "<a[^>]+>${manga}[^>]+>" | awk -F'"' '{print $4}' | head -n 1)
 
